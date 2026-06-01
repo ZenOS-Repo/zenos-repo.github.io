@@ -77,7 +77,7 @@ function wordify(text) {
 function setPath(path) {
   const el = document.getElementById("path");
   el.innerHTML = "";
-  el.appendChild(wordify("PATH: /" + (path || "")));
+  el.appendChild(wordify());
 }
 
 function makeRow(text, onClick) {
