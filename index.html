@@ -39,8 +39,10 @@ const BRANCH = "main";
 function isIgnored(name) {
     const n = name.toLowerCase();
     return n === "license" ||
+           n === "license.md" ||
            n === "readme" ||
-           n === "readme.md";
+           n === "readme.md" ||
+           n === "index.html";
 }
 
 function apiUrl(path) {
