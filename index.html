@@ -5,44 +5,31 @@
 <title>zenOS repo</title>
 
 <style>
-  body {
-    margin: 0;
-    font-family: monospace;
-    background: #fff;
-    color: #000;
-  }
+body {
+    font-family: serif;
+    background: white;
+    color: black;
+}
 
-  pre {
-    margin: 0;
-    padding: 10px 12px;
+.row {
     white-space: pre;
-  }
+}
 
-  .row {
+.package {
     cursor: pointer;
-    white-space: pre;
-  }
+}
 
-  .word {
-    color: #000;
-  }
-
-  /* hover effect: ONLY word turns blue + underline */
-  .row:hover .word {
+.package:hover {
     color: blue;
     text-decoration: underline;
-  }
+}
 </style>
 </head>
-
 <body>
 
-<h1>
-/
-</h1>
+<h1 id="path">/</h1>
 
-<pre id="path"></pre>
-<pre id="files"></pre>
+<div id="files"></div>
 
 <script>
 const OWNER = "ZenOS-Repo";
@@ -50,95 +37,93 @@ const REPO = "zenos-repo.github.io";
 const BRANCH = "main";
 
 function isIgnored(name) {
-  const n = name.toLowerCase();
-  return n === "license" || n === "readme.md" || n === "readme";
+    const n = name.toLowerCase();
+    return n === "license" ||
+           n === "readme" ||
+           n === "readme.md";
 }
 
 function apiUrl(path) {
-  return path
-    ? `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}?ref=${BRANCH}`
-    : `https://api.github.com/repos/${OWNER}/${REPO}/contents/?ref=${BRANCH}`;
-}
+    if (!path) {
+        return `https://api.github.com/repos/${OWNER}/${REPO}/contents/?ref=${BRANCH}`;
+    }
 
-// word splitter (safe)
-function wordify(text) {
-  const span = document.createElement("span");
-
-  text.split(/(\s+)/).forEach(part => {
-    const s = document.createElement("span");
-    s.className = "word";
-    s.textContent = part;
-    span.appendChild(s);
-  });
-
-  return span;
+    return `https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}?ref=${BRANCH}`;
 }
 
 function setPath(path) {
-  const el = document.getElementById("path");
-  el.innerHTML = "";
-  el.appendChild(wordify());
-}
-
-function makeRow(text, onClick) {
-  const row = document.createElement("div");
-  row.className = "row";
-
-  row.appendChild(wordify(text));
-
-  row.addEventListener("click", onClick);
-
-  return row;
+    document.getElementById("path").textContent =
+        "/" + REPO + (path ? "/" + path : "");
 }
 
 async function load(path) {
-  setPath(path);
+    setPath(path);
 
-  const res = await fetch(apiUrl(path));
-  const data = await res.json();
+    const files = document.getElementById("files");
+    files.innerHTML = "Loading...";
 
-  const container = document.getElementById("files");
-  container.innerHTML = "";
+    try {
+        const res = await fetch(apiUrl(path));
+        const data = await res.json();
 
-  if (!Array.isArray(data)) {
-    container.textContent = "error: could not load directory";
-    return;
-  }
+        files.innerHTML = "";
 
-  container.appendChild(wordify("TYPE  NAME"));
-  container.appendChild(document.createElement("br"));
-  container.appendChild(wordify("----  ------------------------------"));
-  container.appendChild(document.createElement("br"));
+        if (!Array.isArray(data)) {
+            files.textContent = "Error loading directory";
+            return;
+        }
 
-  if (path) {
-    container.appendChild(
-      makeRow("DIR   ..", () => {
-        const parts = path.split("/").filter(Boolean);
-        parts.pop();
-        load(parts.join("/"));
-      })
-    );
-  }
+        if (path) {
+            const up = document.createElement("div");
+            up.className = "row";
 
-  data
-    .filter(item => !isIgnored(item.name))
-    .sort((a, b) => {
-      if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    })
-    .forEach(item => {
-      const type = item.type === "dir" ? "DIR " : "FILE";
+            const link = document.createElement("span");
+            link.className = "package";
+            link.textContent = "..";
 
-      container.appendChild(
-        makeRow(type.padEnd(5) + " " + item.name, () => {
-          if (item.type === "dir") {
-            load(item.path);
-          } else {
-            window.open(item.download_url, "_blank");
-          }
-        })
-      );
-    });
+            link.onclick = () => {
+                const parts = path.split("/").filter(Boolean);
+                parts.pop();
+                load(parts.join("/"));
+            };
+
+            up.appendChild(link);
+            files.appendChild(up);
+        }
+
+        data
+            .filter(item => !isIgnored(item.name))
+            .sort((a, b) => {
+                if (a.type !== b.type) {
+                    return a.type === "dir" ? -1 : 1;
+                }
+                return a.name.localeCompare(b.name);
+            })
+            .forEach(item => {
+                const row = document.createElement("div");
+                row.className = "row";
+
+                const link = document.createElement("span");
+                link.className = "package";
+
+                if (item.type === "dir") {
+                    link.textContent = item.name + "/";
+                    link.onclick = () => load(item.path);
+                } else {
+                    link.textContent = item.name;
+                    link.onclick = () => {
+                        window.open(item.download_url, "_blank");
+                    };
+                }
+
+                row.appendChild(link);
+                files.appendChild(row);
+            });
+
+    } catch (err) {
+        files.textContent = "Error loading directory";
+        console.error(err);
+    }
 }
 
 load("");
